@@ -1,5 +1,4 @@
-i
-port os
+import os
 import argparse
 
 banner='echo ICAgICBfXy9cX18KLiBfICBcXCcnLy8gICAgTXVkZGxlCi0oICktL198fF9cICAgIE1hZ2UKIC4nLiBcXygpXy8KICB8ICAgfCAuIFwgICAKICB8ICAgfCAuICBcICAKIC4nLiAsXF9fX19fJy4gQnk6eDU3Cg== | base64 -d'
@@ -36,7 +35,7 @@ if args.phpsessid or args.formkey:
     if args.form:
         headers = {
             'Cookie': f'PHPSESSID={args.phpsessid}',
-            'Cookie': f'form_key={args.form}',
+            #'Cookie': f'form_key={args.form}',
             'Content-Type': 'multipart/form-data',
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
         }
@@ -46,7 +45,7 @@ if args.phpsessid or args.formkey:
     if args.data:
         headers = {
             'Cookie': f'PHPSESSID={args.phpsessid}',
-            'Cookie': f'form_key={args.form}',
+            #'Cookie': f'form_key={args.form}',
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'
         }
@@ -62,49 +61,72 @@ if args.output or args.url:
         for palavra in palavras:
             fuzz = palavra.strip()
             fuzz = escape_special_chars(fuzz)
-            curl_command = f'''
-curl {headers_str} -X POST -s -o /dev/null \
-    -w '{{"Status Code": "%{{response_code}}", "Headers Lines": "%{{num_headers}}", "JSON Headers":%{{header_json}}\n}}' \
-    -d 'remove=0&coupon_code={fuzz}&form_key={FORM_KEY}' {URL} > {OUTPUT}'''
-            
-            if curl_command is not None:
-                return_json = f'cat {OUTPUT}| jq \'."Status Code",."Headers Lines",.["JSON Headers"]."set-cookie"\''
-                decode_json = f'cat {OUTPUT} | jq -r \'.["JSON Headers"]."set-cookie"\' | grep -oP \'mage-messages=\\K[^;]+\' | perl -MURI::Escape -ne \'print uri_unescape($_)\''
-                status_code = f'cat {OUTPUT} | jq -r \'."Status Code"\''
-                
-                cmd_curl_command = os.system(curl_command)
-                
-                cmd_decode_json = os.system(decode_json)
-            else:
-                print('Erro no comando cURL\nVerifique e tente novamente.')
-    elif args.form:
-        for f in args.Form:
+            print(f'Fuzz: {fuzz}')
+
+
+            #curl_command = f'''
+#curl {headers_str} -X POST -s -o /dev/null \
+    #-w '{{"Status Code": "%{{response_code}}", "Headers Lines": "%{{num_headers}}", "JSON Headers":%{{header_json}}\n}}' \
+    #-d 'remove=0&coupon_code={fuzz}&form_key={FORM_KEY}' {URL} > {OUTPUT}'''
             curl_command = f'''
 curl {headers_str} -X POST -s -o /dev/null \
 -w '{{"Status Code": "%{{response_code}}", "Headers Lines": "%{{num_headers}}", "JSON Headers":%{{header_json}}\n}}' \
--F "form_key"={FORM_KEY} \
--F "ratings[4]=ALFA" \
--F "validate_rating=BRAVO" \
--F "nickname=CHARLIE" \
--F "{f[0]}" \
--F "detail=DELTA" \
--F "is_recommended"="FOXTROT" \
--F "review_images[]=@libre.jpeg;type=image/jpeg" \
-{URL} > {OUTPUT}'''
+-d 'form_key={FORM_KEY}&login%5Busername%5D=078.055.100-16&login%5Bpassword%5D=batata123&login%5Battribute%5D=taxvat&send={fuzz}' {URL} > {OUTPUT}
+'''
+            
+            if curl_command is not None:
+                return_json = f'cat {OUTPUT} | jq \'."Status Code",."Headers Lines",.["JSON Headers"]."set-cookie"\''
+                decode_json = f'cat {OUTPUT} | jq -r \'.["JSON Headers"]."set-cookie"\' | grep -oP \'mage-messages=\\K[^;]+\' | perl -MURI::Escape -ne \'print uri_unescape($_)\''
+                #status_code = f'cat {OUTPUT} | jq -r \'."Status Code"\''
+                status_code = f'echo -n $(grep \'Status Code\' {OUTPUT} | cut -d \'"\' -f 4 && echo "\t")'
+
+                #print(curl_command) #Debug curl command
+                os.system(curl_command)
+                #print(cmd_curl_command)
+
+                cmd_status_code = os.system(status_code)
+                #print(cmd_status_code)
+
+                cmd_decode_json = os.system(decode_json)
+                #print(cmd_decode_json)
+                
+            else:
+                print('Erro no comando cURL\nVerifique e tente novamente.')
+
+
+    elif args.form:
+        for f in args.Form:
+
+            form_args = ' '.join([f'-F "{form}"' for sublist in args.Form for form in sublist])
+
+            curl_command = f'''
+curl {headers_str} -X POST -s -o /dev/null \
+-w '{{"Status Code": "%{{response_code}}", "Headers Lines": "%{{num_headers}}", "JSON Headers":%{{header_json}}\n}}' \
+-F form_key={FORM_KEY} \
+{form_args} \
+{URL} > {OUTPUT}
+'''
 
         if curl_command is not None:
-            return_json = f'cat {OUTPUT}| jq \'."Status Code",."Headers Lines",.["JSON Headers"]."set-cookie"\''
+            return_json = f'cat {OUTPUT} | jq \'."Status Code",."Headers Lines",.["JSON Headers"]."set-cookie"\''
             decode_json = f'cat {OUTPUT} | jq -r \'.["JSON Headers"]."set-cookie"\' | grep -oP \'mage-messages=\\K[^;]+\' | perl -MURI::Escape -ne \'print uri_unescape($_)\''
-            status_code = f'cat {OUTPUT} | jq -r \'."Status Code"\''
-            
-            print(curl_command)
-            cmd_curl_command = os.system(curl_command)
+            #status_code = f'cat {OUTPUT} | jq -r \'."Status Code"\''
+            status_code = f'echo -n $(grep \'Status Code\' {OUTPUT} | cut -d \'"\' -f 4 && echo "\t")'
+
+            #print(curl_command) #Debug curl command
+            os.system(curl_command)
             #print(cmd_curl_command)
-            
+
+            cmd_status_code = os.system(status_code)
+            #print(cmd_status_code)
+
             cmd_decode_json = os.system(decode_json)
             #print(cmd_decode_json)
+            
         else:
             print('Erro no comando cURL\nVerifique e tente novamente.')
-else:
-    print('Use "-u" para forneçer um endpoint. (POST)\nUse "-o" para forneçer um output file.')
+    else:
+        print('Use "-u" para forneçer um endpoint. (POST)\nUse "-o" para forneçer um output file.')
+
+print('\n')
 
